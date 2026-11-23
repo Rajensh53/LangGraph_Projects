@@ -23,8 +23,9 @@ def reset_chat():
     st.rerun()
 
 def add_thread(thread_id):
-    if thread_id not in st.session_state['chat_threads']:
-        st.session_state['chat_threads'].append(thread_id)
+    if thread_id in st.session_state['chat_threads']:
+        st.session_state['chat_threads'].remove(thread_id)
+    st.session_state['chat_threads'].insert(0, thread_id)
 
 def load_conversation(thread_id):
     state = chatbot.get_state(config={'configurable': {'thread_id': str(thread_id)}})
@@ -98,7 +99,7 @@ st.sidebar.markdown("---")
 # --- Chat Threads Section ---
 st.sidebar.subheader("💬 My Conversations")
 
-for thread_id in st.session_state['chat_threads'][::-1]:
+for thread_id in st.session_state['chat_threads']:
     is_active = (thread_id == st.session_state['thread_id'])
     label = f"{'👉 ' if is_active else ''}Chat: {str(thread_id)[:8]}..."
     
@@ -134,12 +135,15 @@ for message in st.session_state['message_history']:
 user_input = st.chat_input("Type your message or ask questions about your PDF...")
 
 if user_input:
-    # 1. Add user message to history & display
+    # 1. Ensure current thread is at the top of the sidebar list
+    add_thread(st.session_state['thread_id'])
+
+    # 2. Add user message to history & display
     st.session_state['message_history'].append({'role': 'user', 'content': user_input})
     with st.chat_message('user'):
         st.markdown(user_input)
 
-    # 2. Configuration for LangGraph
+    # 3. Configuration for LangGraph
     CONFIG = {
         "configurable": {'thread_id': st.session_state['thread_id']},
         "metadata": {"thread_id": st.session_state["thread_id"]},

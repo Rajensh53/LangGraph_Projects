@@ -261,10 +261,14 @@ chatbot = graph.compile(checkpointer=checkpointer)
 # 6. Helper Functions
 # -------------------
 def retrieve_all_threads():
-    all_threads = set()
+    seen = set()
+    ordered_threads = []
     for checkpoint in checkpointer.list(None):
-        all_threads.add(checkpoint.config["configurable"]["thread_id"])
-    return list(all_threads)
+        thread_id = checkpoint.config["configurable"]["thread_id"]
+        if thread_id and thread_id not in seen:
+            seen.add(thread_id)
+            ordered_threads.append(thread_id)
+    return ordered_threads
 
 retrive_all_threads = retrieve_all_threads
 
