@@ -5,6 +5,7 @@ from chatbot_backend import (
     ingest_pdf,
     thread_has_document,
     thread_document_metadata,
+    get_thread_first_message,
 )
 from langchain_core.messages import HumanMessage, AIMessage, ToolMessage
 import uuid
@@ -31,10 +32,25 @@ def load_conversation(thread_id):
     state = chatbot.get_state(config={'configurable': {'thread_id': str(thread_id)}})
     return state.values.get('messages', [])
 
+def get_thread_title(thread_id):
+    tid = str(thread_id)
+    if tid in st.session_state['thread_titles']:
+        return st.session_state['thread_titles'][tid]
+    
+    first_msg = get_thread_first_message(tid, max_chars=32)
+    if first_msg:
+        st.session_state['thread_titles'][tid] = first_msg
+        return first_msg
+    
+    return "New Chat"
+
 
 ### Session Setup
 if 'message_history' not in st.session_state:
     st.session_state['message_history'] = []
+
+if 'thread_titles' not in st.session_state:
+    st.session_state['thread_titles'] = {}
 
 if 'thread_id' not in st.session_state:
     st.session_state['thread_id'] = generate_thread_id()
@@ -101,7 +117,9 @@ st.sidebar.subheader("💬 My Conversations")
 
 for thread_id in st.session_state['chat_threads']:
     is_active = (thread_id == st.session_state['thread_id'])
-    label = f"{'👉 ' if is_active else ''}Chat: {str(thread_id)[:8]}..."
+    title = get_thread_title(thread_id)
+    icon = "👉 " if is_active else "💬 "
+    label = f"{icon}{title}"
     
     if st.sidebar.button(label, key=f"btn_{thread_id}", use_container_width=True):
         st.session_state['thread_id'] = thread_id
@@ -138,12 +156,19 @@ if user_input:
     # 1. Ensure current thread is at the top of the sidebar list
     add_thread(st.session_state['thread_id'])
 
-    # 2. Add user message to history & display
+    # 2. Update thread title if this is the first message in the chat
+    curr_tid = str(st.session_state['thread_id'])
+    if curr_tid not in st.session_state['thread_titles'] or st.session_state['thread_titles'][curr_tid] == "New Chat":
+        first_line = user_input.strip().split("\n")[0].strip()
+        title = first_line[:32].rstrip() + "..." if len(first_line) > 32 else first_line
+        st.session_state['thread_titles'][curr_tid] = title
+
+    # 3. Add user message to history & display
     st.session_state['message_history'].append({'role': 'user', 'content': user_input})
     with st.chat_message('user'):
         st.markdown(user_input)
 
-    # 3. Configuration for LangGraph
+    # 4. Configuration for LangGraph
     CONFIG = {
         "configurable": {'thread_id': st.session_state['thread_id']},
         "metadata": {"thread_id": st.session_state["thread_id"]},

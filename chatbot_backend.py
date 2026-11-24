@@ -279,3 +279,21 @@ def thread_has_document(thread_id: str) -> bool:
 
 def thread_document_metadata(thread_id: str) -> dict:
     return _THREAD_METADATA.get(str(thread_id), {})
+
+
+def get_thread_first_message(thread_id: str, max_chars: int = 30) -> Optional[str]:
+    """Retrieve the first human message text from a thread's history."""
+    try:
+        state = chatbot.get_state(config={"configurable": {"thread_id": str(thread_id)}})
+        messages = state.values.get("messages", [])
+        for m in messages:
+            if isinstance(m, HumanMessage):
+                text = getattr(m, "text", m.content)
+                if isinstance(text, str) and text.strip():
+                    first_line = text.strip().split("\n")[0].strip()
+                    if len(first_line) > max_chars:
+                        return first_line[:max_chars].rstrip() + "..."
+                    return first_line
+        return None
+    except Exception:
+        return None
